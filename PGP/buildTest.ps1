@@ -1,6 +1,6 @@
 
-$step = 10000
-$max = 100000
+$step = $args[1] -as [int]
+$max = $args[2] -as [int]
 
 $projectName = $args[0]
 

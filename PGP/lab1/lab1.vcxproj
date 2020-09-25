@@ -48,6 +48,10 @@
   <ImportGroup Label="ExtensionSettings" Condition="'$(Configuration)|$(Platform)'=='Test|x64'">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.0.props" />
   </ImportGroup>
+  <PropertyGroup Label="UserMacros">
+    <TestStep>10000</TestStep>
+    <TestMax>100000</TestMax>
+  </PropertyGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='GPU|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -81,7 +85,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Test|x64'">
     <CustomBuildStep>
-      <Command>powershell -executionpolicy bypass -File .\buildTest.ps1 $(MSBuildProjectName)</Command>
+      <Command>powershell -executionpolicy bypass -File .\..\buildTest.ps1 $(MSBuildProjectName) $(TestStep) $(TestMax)</Command>
       <Outputs>tests/*</Outputs>
       <Inputs>
       </Inputs>
@@ -100,7 +104,7 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>py graphic.py</Command>
+      <Command>py ../graphic.py $(TestStep) $(TestMax)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
