@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.30225.117
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lab1", "lab1\lab1.vcxproj", "{E45AE63E-DC3A-4116-8A0D-7D2971C88E41}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lab2", "lab2\lab2.vcxproj", "{94923AA1-667E-4538-B1B5-5931977923C6}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		CPU|x64 = CPU|x64
@@ -20,12 +18,6 @@ Global
 		{E45AE63E-DC3A-4116-8A0D-7D2971C88E41}.GPU|x64.Build.0 = GPU|x64
 		{E45AE63E-DC3A-4116-8A0D-7D2971C88E41}.Test|x64.ActiveCfg = Test|x64
 		{E45AE63E-DC3A-4116-8A0D-7D2971C88E41}.Test|x64.Build.0 = Test|x64
-		{94923AA1-667E-4538-B1B5-5931977923C6}.CPU|x64.ActiveCfg = CPU|x64
-		{94923AA1-667E-4538-B1B5-5931977923C6}.CPU|x64.Build.0 = CPU|x64
-		{94923AA1-667E-4538-B1B5-5931977923C6}.GPU|x64.ActiveCfg = GPU|x64
-		{94923AA1-667E-4538-B1B5-5931977923C6}.GPU|x64.Build.0 = GPU|x64
-		{94923AA1-667E-4538-B1B5-5931977923C6}.Test|x64.ActiveCfg = Test|x64
-		{94923AA1-667E-4538-B1B5-5931977923C6}.Test|x64.Build.0 = Test|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
