@@ -14,6 +14,10 @@ __device__ double Min(double a, double b);
 
 int main()
 {
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
 	int vectorLength;
 	std::cin >> vectorLength;
 
@@ -28,7 +32,15 @@ int main()
 	ReadArray(first, vectorLength);
 	ReadArray(second, vectorLength);
 
+	cudaEventRecord(start);
+
 	CudaOperation(first, second, result, vectorLength);
+
+	cudaEventRecord(stop);
+
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	std::cout << milliseconds << std::endl;
 
 	WriteArray(result, vectorLength);
 }
