@@ -83,7 +83,20 @@ void CudaOperation(double* first, double* second, double* result, int vectorLeng
 
 	float milliseconds = 0;
 	cudaEventElapsedTime(&milliseconds, start, stop);
-	std::cout << milliseconds << ' ' << milliseconds * 0.6f << std::endl;
+
+
+	cudaEventRecord(start);
+
+	OperateParallel << <1, 128 >> > (firstDevice, secondDevice, resultDevice, vectorLength);
+	cudaDeviceSynchronize();
+
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+
+	float millisecondsSecond = 0;
+	cudaEventElapsedTime(&millisecondsSecond, start, stop);
+
+	std::cout << milliseconds << ' ' << millisecondsSecond << std::endl;
 
 	cudaMemcpy(result, resultDevice, vectorLength * sizeof(double), cudaMemcpyDeviceToHost);
 }
@@ -104,7 +117,7 @@ __device__ int Max(int a, int b)
 
 __global__ void OperateParallel(double* firstDevice, double* secondDevice, double* resultDevice, int vectorLength)
 {
-	int length = Max(vectorLength / blockDim.x, 1);
+	int length = Max(vectorLength / (threadIdx.x), 1);
 	int left = Min(threadIdx.x * length, vectorLength);
 	int right = (threadIdx.x == blockDim.x - 1)
 		? vectorLength - 1
