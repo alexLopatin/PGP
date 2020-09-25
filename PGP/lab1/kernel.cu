@@ -14,10 +14,6 @@ __device__ double Min(double a, double b);
 
 int main()
 {
-	cudaEvent_t start, stop;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-
 	int vectorLength;
 	std::cin >> vectorLength;
 
@@ -32,15 +28,7 @@ int main()
 	ReadArray(first, vectorLength);
 	ReadArray(second, vectorLength);
 
-	cudaEventRecord(start);
-
 	CudaOperation(first, second, result, vectorLength);
-
-	cudaEventRecord(stop);
-
-	float milliseconds = 0;
-	cudaEventElapsedTime(&milliseconds, start, stop);
-	std::cout << milliseconds << std::endl;
 
 	WriteArray(result, vectorLength);
 }
@@ -68,6 +56,10 @@ void WriteArray(double* arr, int size)
 
 void CudaOperation(double* first, double* second, double* result, int vectorLength)
 {
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
 	double* firstDevice = 0;
 	double* secondDevice = 0;
 	double* resultDevice = 0;
@@ -81,8 +73,17 @@ void CudaOperation(double* first, double* second, double* result, int vectorLeng
 	cudaMemcpy(firstDevice, first, vectorLength * sizeof(double), cudaMemcpyHostToDevice);
 	cudaMemcpy(secondDevice, second, vectorLength * sizeof(double), cudaMemcpyHostToDevice);
 
+	cudaEventRecord(start);
+
 	OperateParallel << <1, 256 >> > (firstDevice, secondDevice, resultDevice, vectorLength);
 	cudaDeviceSynchronize();
+
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	std::cout << milliseconds << ' ' << milliseconds * 0.6f << std::endl;
 
 	cudaMemcpy(result, resultDevice, vectorLength * sizeof(double), cudaMemcpyDeviceToHost);
 }

@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <ctime>
 
 void ReadArray(double* arr, int size);
 void WriteArray(double* arr, int size);
@@ -13,12 +14,10 @@ double Min(double a, double b);
 
 int main()
 {
-	cudaEvent_t start, stop;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-
 	int vectorLength;
 	std::cin >> vectorLength;
+
+	clock_t begin = clock();
 
 	double* first;
 	double* second;
@@ -31,15 +30,11 @@ int main()
 	ReadArray(first, vectorLength);
 	ReadArray(second, vectorLength);
 
-	cudaEventRecord(start);
-
 	Operate(first, second, result, vectorLength);
 
-	cudaEventRecord(stop);
+	clock_t end = clock();
 
-	float milliseconds = 0;
-	cudaEventElapsedTime(&milliseconds, start, stop);
-	std::cout << milliseconds << std::endl;
+	std::cout << double(end - begin) / CLOCKS_PER_SEC << std::endl;
 
 	WriteArray(result, vectorLength);
 }
