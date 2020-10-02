@@ -2,89 +2,121 @@
 #include "device_launch_parameters.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <iostream>
 #include <ctime>
+#include <algorithm>
 
-void ReadArray(double* arr, int size);
-void WriteArray(double* arr, int size);
+#define Color uchar4
 
-void Operate(double* firstDevice, double* secondDevice, double* resultDevice, int vectorLength);
-
-double Min(double a, double b);
-
-int main()
+float4 Sum(float4 a, Color b, float coef)
 {
-	int vectorLength;
-	std::cin >> vectorLength;
-
-	clock_t begin = clock();
-
-	double* first;
-	double* second;
-	double* result;
-
-	first = (double*)malloc(sizeof(double) * vectorLength);
-	second = (double*)malloc(sizeof(double) * vectorLength);
-	result = (double*)malloc(sizeof(double) * vectorLength);
-
-	ReadArray(first, vectorLength);
-	ReadArray(second, vectorLength);
-
-	Operate(first, second, result, vectorLength);
-
-	clock_t end = clock();
-
-	std::cout << double(end - begin) / CLOCKS_PER_SEC << std::endl;
-
-	WriteArray(result, vectorLength);
+	return { a.x + (float)b.x * coef,
+		a.y + (float)b.y * coef,
+		a.z + (float)b.z * coef,
+		a.w + (float)b.w * coef };
 }
 
-void ReadArray(double* arr, int size)
+Color ToColor(float4 a, float normalizeValue)
 {
-	for (int i = 0; i < size; i++)
-	{
-		std::cin >> arr[i];
-	}
+	return { (unsigned char)(a.x / normalizeValue),
+		(unsigned char)(a.y / normalizeValue),
+		(unsigned char)(a.z / normalizeValue),
+		(unsigned char)(a.w / normalizeValue) };
 }
 
-void WriteArray(double* arr, int size)
+int GetCoordinate(int x, int y, int w, int h)
 {
-	for (int i = 0; i < size; i++)
-	{
-		std::cout << arr[i];
+	int x_n = std::max(0, std::min(w - 1, x));
+	int y_n = std::max(0, std::min(h - 1, y));
 
-		if (i < size - 1)
+	return y_n * w + x_n;
+}
+
+void Kernel(Color* out, int w, int h, int radius, bool isX)
+{
+	float PI = 3.14159265359;
+
+	Color c;
+	float4 newColor;
+
+	float r = radius != 0
+		? radius
+		: 1;
+	float sum = 0;
+	float coef = 0;
+
+	int i, j, k;
+
+	for (i = 0; i < h; i++)
+	{
+		for (j = 0; j < w; j++)
 		{
-			std::cout << ' ';
+			newColor = { 0,0,0,0 };
+			sum = 0;
+
+			for (k = -radius; k <= radius; k++)
+			{
+				int x = std::max(0, std::min(w - 1, j));
+				int y = std::max(0, std::min(h - 1, i));
+
+				c = isX
+					? out[GetCoordinate(j + k, i, w, h)]
+					: out[GetCoordinate(j, i + k, w, h)];
+				coef = exp(-(float)(k * k) / (2 * r * r)) / (r * sqrt(2 * PI));
+
+				newColor = Sum(newColor,
+					c,
+					coef);
+				sum += coef;
+			}
+
+			out[i * w + j] = ToColor(newColor, sum);
 		}
 	}
 }
 
-int Min(int a, int b)
+void GetFilteredImage(Color* result, int width, int height, int radius)
 {
-	return (a > b)
-		? b
-		: a;
+	//Y
+	Kernel(result, width, height, radius, false);
+
+	//X
+	Kernel(result, width, height, radius, true);
 }
 
-int Max(int a, int b)
+int main()
 {
-	return (a < b)
-		? b
-		: a;
-}
+	std::string inFile;
+	std::string outFile;
+	int radius;
 
-void Operate(double* firstDevice, double* secondDevice, double* resultDevice, int vectorLength)
-{
-	for (int i = 0; i < vectorLength - 1; i++)
-	{
-		resultDevice[i] = Min(firstDevice[i], secondDevice[i]);
-	}
-}
+	std::cin >> inFile >> outFile >> radius;
 
-double Min(double a, double b)
-{
-	return (a > b)
-		? b
-		: a;
+	auto* file = fopen(inFile.c_str(), "rb");
+
+	int width, height;
+	fread(&width, sizeof(int), 1, file);
+	fread(&height, sizeof(int), 1, file);
+
+	auto hostMap = (Color*)malloc(sizeof(Color) * width * height);
+	fread(hostMap, sizeof(Color), width * height, file);
+
+	fclose(file);
+
+	clock_t begin = clock();
+	GetFilteredImage(hostMap, width, height, radius);
+	clock_t end = clock();
+
+	std::cout << double(end - begin) / CLOCKS_PER_SEC << std::endl;
+
+	file = fopen(outFile.c_str(), "wb");
+
+	fwrite(&width, sizeof(int), 1, file);
+	fwrite(&height, sizeof(int), 1, file);
+	fwrite(hostMap, sizeof(Color), width * height, file);
+
+	fclose(file);
+
+	free(hostMap);
 }

@@ -98,6 +98,36 @@ __host__ void GetFilteredImage(Color* result, int width, int height, int radius)
 	Color* deviceMap;
 	cudaMalloc(&deviceMap, sizeof(Color) * width * height);
 
+	cudaEvent_t start, stop;
+	{
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord(start);
+
+		//Y
+		Kernel << <dim3(1, 1), dim3(32, 1) >> > (deviceMap, width, height, radius, false);
+		cudaDeviceSynchronize();
+
+		cudaMemcpyToArray(_arrayMap, 0, 0, deviceMap, sizeof(Color) * width * height, cudaMemcpyDeviceToDevice);
+
+		//X
+		Kernel << <dim3(1, 1), dim3(32, 1) >> > (deviceMap, width, height, radius, true);
+		cudaDeviceSynchronize();
+
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+	}
+
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+
+	{
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
+	cudaEventRecord(start);
+
 	//Y
 	Kernel << <dim3(32, 32), dim3(32, 32) >> > (deviceMap, width, height, radius, false);
 	cudaDeviceSynchronize();
@@ -107,6 +137,15 @@ __host__ void GetFilteredImage(Color* result, int width, int height, int radius)
 	//X
 	Kernel << <dim3(32, 32), dim3(32, 32) >> > (deviceMap, width, height, radius, true);
 	cudaDeviceSynchronize();
+
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	}
+
+	float millisecondsSecond = 0;
+	cudaEventElapsedTime(&millisecondsSecond, start, stop);
+
+	std::cout << milliseconds / 1000 << ' ' << millisecondsSecond/1000 << std::endl;
 
 	cudaMemcpy(result, deviceMap, sizeof(Color) * width * height, cudaMemcpyDeviceToHost);
 	cudaFree(deviceMap);

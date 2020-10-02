@@ -49,8 +49,8 @@
     <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.0.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros">
-    <TestStep>10000</TestStep>
-    <TestMax>100000</TestMax>
+    <TestStep>16</TestStep>
+    <TestMax>128</TestMax>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='GPU|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -120,7 +120,6 @@
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="in.data" />
     <None Include="test.py" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
