@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lab1", "lab1\lab1.vcxproj",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lab2", "lab2\lab2.vcxproj", "{7195318A-86AE-48EE-A676-9131879DAC85}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lab3", "lab3\lab3.vcxproj", "{887C4702-6819-40BB-A679-1D01E332E15F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		CPU|x64 = CPU|x64
@@ -26,6 +28,12 @@ Global
 		{7195318A-86AE-48EE-A676-9131879DAC85}.GPU|x64.Build.0 = GPU|x64
 		{7195318A-86AE-48EE-A676-9131879DAC85}.Test|x64.ActiveCfg = Test|x64
 		{7195318A-86AE-48EE-A676-9131879DAC85}.Test|x64.Build.0 = Test|x64
+		{887C4702-6819-40BB-A679-1D01E332E15F}.CPU|x64.ActiveCfg = CPU|x64
+		{887C4702-6819-40BB-A679-1D01E332E15F}.CPU|x64.Build.0 = CPU|x64
+		{887C4702-6819-40BB-A679-1D01E332E15F}.GPU|x64.ActiveCfg = GPU|x64
+		{887C4702-6819-40BB-A679-1D01E332E15F}.GPU|x64.Build.0 = GPU|x64
+		{887C4702-6819-40BB-A679-1D01E332E15F}.Test|x64.ActiveCfg = Test|x64
+		{887C4702-6819-40BB-A679-1D01E332E15F}.Test|x64.Build.0 = Test|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
