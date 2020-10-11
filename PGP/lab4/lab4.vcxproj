@@ -15,7 +15,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{7195318A-86AE-48EE-A676-9131879DAC85}</ProjectGuid>
+    <ProjectGuid>{54B40C20-0CDE-4AE9-8E2C-E498047FB277}</ProjectGuid>
     <RootNamespace>lab1</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -49,8 +49,8 @@
     <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.0.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros">
-    <TestStep>100000</TestStep>
-    <TestMax>1000000</TestMax>
+    <TestStep>10000</TestStep>
+    <TestMax>100000</TestMax>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='GPU|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />

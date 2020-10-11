@@ -158,7 +158,7 @@ int main()
 	int radius;
 
 	std::cin >> inFile >> outFile >> radius;
-
+	radius/= 10000.0;
 	auto *file = fopen(inFile.c_str(), "rb");
 
 	int width, height;
