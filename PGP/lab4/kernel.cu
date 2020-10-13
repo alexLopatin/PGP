@@ -25,7 +25,7 @@ __global__ void SwapRows(double* deviceMatrix,
 	int rowCount,
 	int columnCount)
 {
-	int idx = blockDim.x * blockIdx.x + threadIdx.x + currentColumn;
+	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	int offsetx = blockDim.x * gridDim.x;
 
 	for (auto i = idx; i < columnCount; i += offsetx)
@@ -81,7 +81,6 @@ __global__ void SetCurrentZero(double* deviceMatrix,
 	}
 }
 
-
 Comparator comparator;
 
 __host__ int GetMaxIndexInColumn(double* deviceMatrix,
@@ -121,19 +120,6 @@ __host__ int GetMaxIndexInColumn(double* deviceMatrix,
 	}
 }
 
-__host__ void PrintMatrix(double* matrix, int rowCount, int columnCount)
-{
-	for (int i = 0; i < rowCount; i++)
-	{
-		for (int j = 0; j < columnCount; j++)
-		{
-			std::cerr << matrix[j * rowCount + i] << ' ';
-		}
-
-		std::cerr << '\n';
-	}
-}
-
 __host__ int FindRank(double* matrix, int rowCount, int columnCount)
 {
 	double* deviceMatrix;
@@ -163,17 +149,17 @@ __host__ int FindRank(double* matrix, int rowCount, int columnCount)
 
 			CalculateCurrentRow << <1024, 1024 >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
 			CalculateRows << <1024, 1024 >> > (deviceMatrix, rowCount, columnCount, i, i + offset);
-			//SetCurrentZero << <1024, 1024 >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
+			SetCurrentZero << <1024, 1024 >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
 		}
 		catch (std::runtime_error& e)
 		{
-			std::cerr << rowCount << ' ' << columnCount << '\n';
-			std::cerr << "offset: " << offset << '\n';
-			std::cerr << e.what() << '\n';
+			//std::cerr << rowCount << ' ' << columnCount << '\n';
+			//std::cerr << "offset: " << offset << '\n';
+			//std::cerr << e.what() << '\n';
 		}
 	}
 
-	//cudaFree(deviceMatrix);
+	cudaFree(deviceMatrix);
 
 	auto rank = columnCount - offset > rowCount
 		? rowCount
@@ -184,9 +170,12 @@ __host__ int FindRank(double* matrix, int rowCount, int columnCount)
 
 int main()
 {
+	std::ios_base::sync_with_stdio(false);
+	std::cin.tie(nullptr);
+
 	int rowCount, columnCount;
 	std::cin >> rowCount >> columnCount;
-	auto matrix = new double[rowCount * columnCount];
+
 
 	auto isTransposed = rowCount < columnCount;
 
@@ -197,26 +186,27 @@ int main()
 		columnCount = temp;
 	}
 
+	auto matrix = new double[rowCount * columnCount];
+
 	for (int i = 0; i < rowCount; i++)
 	{
 		for (int j = 0; j < columnCount; j++)
 		{
 			if (isTransposed)
 			{
-				//std::cin >> matrix[i * columnCount + j];
-				matrix[i * columnCount + j] = rand() % 200 - 100;
+				std::cin >> matrix[i * columnCount + j];
+				//matrix[i * columnCount + j] = rand() % 200 - 100;
 			}
 			else
 			{
-				//std::cin >> matrix[j * rowCount + i];
-				matrix[j * rowCount + i] = rand() % 200 - 100;
+				std::cin >> matrix[j * rowCount + i];
+				//matrix[j * rowCount + i] = rand() % 200 - 100;
 			}
 		}
 	}
 
 	auto rank = FindRank(matrix, rowCount, columnCount);
 	std::cout << rank << std::endl;
-
 
 	delete[] matrix;
 }
