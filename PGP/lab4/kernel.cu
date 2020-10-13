@@ -51,16 +51,23 @@ __global__ void CalculateCurrentRow(double* deviceMatrix,
 	}
 }
 
-__global__ void CalculateRows(double* deviceMatrix, int rowCount, int columnCount, int currentRow, int currentColumn)
+__global__ void CalculateRows(double* deviceMatrix,
+	int currentRow,
+	int currentColumn,
+	int rowCount,
+	int columnCount)
 {
-	int idx = threadIdx.x;
+	int idx = threadIdx.x + currentRow + 1;
 	int offsetx = blockDim.x;
-	int idy = blockIdx.x;
+	int idy = blockIdx.x + currentColumn + 1;
 	int offsety = gridDim.x;
 
-	for (int j = idx + currentRow + 1; j < rowCount; j += offsetx) {
-		for (int k = idy + currentColumn + 1; k < columnCount; k += offsety) {
-			deviceMatrix[k * rowCount + j] -= deviceMatrix[currentColumn * rowCount + j] * deviceMatrix[k * rowCount + currentRow];
+	for (int j = idx; j < rowCount; j += offsetx)
+	{
+		for (int k = idy; k < columnCount; k += offsety)
+		{
+			deviceMatrix[k * rowCount + j] -=
+				deviceMatrix[currentColumn * rowCount + j] * deviceMatrix[k * rowCount + currentRow];
 		}
 	}
 }
@@ -89,14 +96,13 @@ __host__ int GetMaxIndexInColumn(double* deviceMatrix,
 	int rowCount,
 	int columnCount)
 {
-
 	if (columnIndex * rowCount == 0)
 	{
 		auto indexPointer = device_pointer_cast(deviceMatrix + columnIndex * rowCount);
 		auto maxIndexPointer = max_element(indexPointer + rowIndex, indexPointer + rowCount, comparator);
 		auto maxIndex = maxIndexPointer - indexPointer;
 
-		double elem;
+		auto elem = 0.0;
 		cudaMemcpy(&elem, deviceMatrix + columnIndex * rowCount + maxIndex, sizeof(double), cudaMemcpyDeviceToHost);
 
 		if (fabs(elem) < EPSILON)
@@ -128,35 +134,25 @@ __host__ int FindRank(double* matrix, int rowCount, int columnCount)
 
 	auto offset = 0;
 
-
 	for (int i = 0; i < rowCount && i + offset < columnCount; i++)
 	{
-		try
+		auto maxIndex = GetMaxIndexInColumn(deviceMatrix, i, i + offset, rowCount, columnCount);
+
+		if (maxIndex < 0)
 		{
-			auto maxIndex = GetMaxIndexInColumn(deviceMatrix, i, i + offset, rowCount, columnCount);
-
-			if (maxIndex < 0)
-			{
-				offset++;
-				i--;
-				continue;
-			}
-
-			if (maxIndex != i)
-			{
-				SwapRows << <1024, 1024 >> > (deviceMatrix, i, maxIndex, i + offset, rowCount, columnCount);
-			}
-
-			CalculateCurrentRow << <1024, 1024 >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
-			CalculateRows << <1024, 1024 >> > (deviceMatrix, rowCount, columnCount, i, i + offset);
-			SetCurrentZero << <1024, 1024 >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
+			offset++;
+			i--;
+			continue;
 		}
-		catch (std::runtime_error& e)
+
+		if (maxIndex != i)
 		{
-			//std::cerr << rowCount << ' ' << columnCount << '\n';
-			//std::cerr << "offset: " << offset << '\n';
-			//std::cerr << e.what() << '\n';
+			SwapRows<<<1024, 1024>>>(deviceMatrix, i, maxIndex, i + offset, rowCount, columnCount);
 		}
+
+		CalculateCurrentRow<<<1024, 1024 >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
+		CalculateRows<<<1024, 1024 >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
+		SetCurrentZero<<<1024, 1024>>>(deviceMatrix, i, i + offset, rowCount, columnCount);
 	}
 
 	cudaFree(deviceMatrix);
@@ -176,7 +172,6 @@ int main()
 	int rowCount, columnCount;
 	std::cin >> rowCount >> columnCount;
 
-
 	auto isTransposed = rowCount < columnCount;
 
 	if (isTransposed)
@@ -192,16 +187,9 @@ int main()
 	{
 		for (int j = 0; j < columnCount; j++)
 		{
-			if (isTransposed)
-			{
-				std::cin >> matrix[i * columnCount + j];
-				//matrix[i * columnCount + j] = rand() % 200 - 100;
-			}
-			else
-			{
-				std::cin >> matrix[j * rowCount + i];
-				//matrix[j * rowCount + i] = rand() % 200 - 100;
-			}
+			std::cin >> (isTransposed
+				? matrix[i * columnCount + j]
+				: matrix[j * rowCount + i]);
 		}
 	}
 
