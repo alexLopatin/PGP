@@ -8,29 +8,27 @@
 
 using namespace thrust;
 
-const double EPSILON = 10E-7;
-
-double Abs(double number)
-{
-	return number > 0
-		? number
-		: -number;
-}
+const double EPSILON = 10E-8;
 
 struct Comparator
 {
 	__host__ __device__ bool operator()(double a, double b)
 	{
-		return fabs(a) < fabs(b);
+		return fabs(a) < fabs(b) && fabs(b) >= 10E-8;
 	}
 };
 
-__global__ void SwapRows(double* deviceMatrix, int currentRow, int otherRow, int rowCount, int columnCount)
+__global__ void SwapRows(double* deviceMatrix,
+	int currentRow,
+	int otherRow,
+	int currentColumn,
+	int rowCount,
+	int columnCount)
 {
-	auto start = blockDim.x * blockIdx.x + threadIdx.x;
-	auto step = blockDim.x * gridDim.x;
+	int idx = blockDim.x * blockIdx.x + threadIdx.x + currentColumn;
+	int offsetx = blockDim.x * gridDim.x;
 
-	for (auto i = start; i < columnCount; i += step)
+	for (auto i = idx; i < columnCount; i += offsetx)
 	{
 		auto temp = deviceMatrix[i * rowCount + currentRow];
 		deviceMatrix[i * rowCount + currentRow] = deviceMatrix[i * rowCount + otherRow];
@@ -44,64 +42,83 @@ __global__ void CalculateCurrentRow(double* deviceMatrix,
 	int rowCount,
 	int columnCount)
 {
-	auto start = blockDim.x * blockIdx.x + threadIdx.x + currentColumn + 1;
-	auto step = blockDim.x * gridDim.x;
+	int idx = blockDim.x * blockIdx.x + threadIdx.x + currentColumn + 1;
+	int offsetx = blockDim.x * gridDim.x;
 
-	for (auto i = start; i < columnCount; i += step)
+	for (auto i = idx; i < columnCount; i += offsetx)
 	{
 		deviceMatrix[i * rowCount + currentRow] /= deviceMatrix[currentColumn * rowCount + currentRow];
 	}
 }
 
-__global__ void CalculateCurrentColumn(double* deviceMatrix,
-	int currentRow,
-	int currentColumn,
-	int rowCount,
-	int columnCount)
+__global__ void CalculateRows(double* deviceMatrix, int rowCount, int columnCount, int currentRow, int currentColumn)
 {
-	auto start = blockDim.x * blockIdx.x + threadIdx.x + currentRow;
-	auto step = blockDim.x * gridDim.x;
+	int idx = threadIdx.x;
+	int offsetx = blockDim.x;
+	int idy = blockIdx.x;
+	int offsety = gridDim.x;
 
-	for (auto i = start; i < rowCount; i += step)
-	{
-		deviceMatrix[currentColumn * rowCount + i] = (i == currentRow);
-		printf("%f\n", deviceMatrix[currentColumn * rowCount + i]);
-	}
-}
-
-__global__ void CalculateRows(double* deviceMatrix,
-	int currentRow,
-	int currentColumn,
-	int rowCount,
-	int columnCount)
-{
-	auto startX = blockDim.x * blockIdx.x + threadIdx.x + currentColumn + 1;
-	auto startY = blockDim.y * blockIdx.y + threadIdx.y + currentRow + 1;
-	auto stepX = blockDim.x * gridDim.x;
-	auto stepY = blockDim.y * gridDim.y;
-
-	for (auto i = startY; i < rowCount; i += stepY)
-	{
-		for (auto j = startX; j < columnCount; j += stepX)
-		{
-			deviceMatrix[j * rowCount + i] -= deviceMatrix[currentColumn * rowCount + i] * deviceMatrix[j * rowCount + currentRow];
+	for (int j = idx + currentRow + 1; j < rowCount; j += offsetx) {
+		for (int k = idy + currentColumn + 1; k < columnCount; k += offsety) {
+			deviceMatrix[k * rowCount + j] -= deviceMatrix[currentColumn * rowCount + j] * deviceMatrix[k * rowCount + currentRow];
 		}
 	}
 }
 
-__host__ int GetMaxIndexInColumn(double* deviceMatrix,
+__global__ void SetCurrentZero(double* deviceMatrix,
+	int currentRow,
+	int currentColumn,
 	int rowCount,
-	int columnCount,
-	int rowIndex,
-	int columnIndex)
+	int columnCount)
 {
-	Comparator comparator;
+	int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	int offsetx = blockDim.x * gridDim.x;
 
-	auto indexPointer = device_pointer_cast(deviceMatrix + rowIndex * rowCount);
-	auto maxIndexPointer = thrust::max_element(indexPointer + columnIndex, indexPointer + rowCount, comparator);
-	auto maxIndex = maxIndexPointer - indexPointer;
+	for (auto i = idx; i < columnCount; i += offsetx)
+	{
+		deviceMatrix[i * rowCount + currentRow] = 0;
+		deviceMatrix[currentColumn * rowCount + i] = 0;
+	}
+}
 
-	return maxIndex;
+
+Comparator comparator;
+
+__host__ int GetMaxIndexInColumn(double* deviceMatrix,
+	int rowIndex,
+	int columnIndex,
+	int rowCount,
+	int columnCount)
+{
+
+	if (columnIndex * rowCount == 0)
+	{
+		auto indexPointer = device_pointer_cast(deviceMatrix + columnIndex * rowCount);
+		auto maxIndexPointer = max_element(indexPointer + rowIndex, indexPointer + rowCount, comparator);
+		auto maxIndex = maxIndexPointer - indexPointer;
+
+		double elem;
+		cudaMemcpy(&elem, deviceMatrix + columnIndex * rowCount + maxIndex, sizeof(double), cudaMemcpyDeviceToHost);
+
+		if (fabs(elem) < EPSILON)
+		{
+			return -1;
+		}
+
+		return maxIndex;
+	}
+	else
+	{
+		auto indexPointer = device_pointer_cast(deviceMatrix + columnIndex * rowCount);
+		auto maxIndexPointer = thrust::max_element(indexPointer - 1 + rowIndex, indexPointer + rowCount, comparator);
+		auto maxIndex = maxIndexPointer - indexPointer;
+		if (maxIndex == rowIndex - 1)
+		{
+			return -1;
+		}
+
+		return maxIndex;
+	}
 }
 
 __host__ void PrintMatrix(double* matrix, int rowCount, int columnCount)
@@ -125,23 +142,14 @@ __host__ int FindRank(double* matrix, int rowCount, int columnCount)
 
 	auto offset = 0;
 
-	try
+
+	for (int i = 0; i < rowCount && i + offset < columnCount; i++)
 	{
-		for (int i = 0; i < rowCount - 1 && i + offset < columnCount; i++)
+		try
 		{
-			auto maxIndex = GetMaxIndexInColumn(deviceMatrix, rowCount, columnCount, i + offset, i);
+			auto maxIndex = GetMaxIndexInColumn(deviceMatrix, i, i + offset, rowCount, columnCount);
 
-			std::cerr << '\n';
-			std::cerr << "pick max from:\n";
-			for (int j = (i + offset) * rowCount + i; j < (i + offset) * rowCount + rowCount; j++)
-			{
-				std::cerr << matrix[j] << ' ';
-			}
-			std::cerr << '\n';
-
-			std::cerr << "max elem: " << matrix[(i + offset) * rowCount + maxIndex] << '\n';
-
-			if (Abs(matrix[(i + offset) * rowCount + maxIndex]) < EPSILON)
+			if (maxIndex < 0)
 			{
 				offset++;
 				i--;
@@ -150,54 +158,26 @@ __host__ int FindRank(double* matrix, int rowCount, int columnCount)
 
 			if (maxIndex != i)
 			{
-				SwapRows << <1024, 1024 >> > (deviceMatrix, i, maxIndex, rowCount, columnCount);
-				cudaThreadSynchronize();
+				SwapRows << <1024, 1024 >> > (deviceMatrix, i, maxIndex, i + offset, rowCount, columnCount);
 			}
-
 
 			CalculateCurrentRow << <1024, 1024 >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
-			cudaThreadSynchronize();
-
-			CalculateRows << <dim3(32, 32), dim3(32, 32) >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
-			cudaThreadSynchronize();
-
-			CalculateCurrentColumn << <1024, 1024 >> >(deviceMatrix, i, i + offset, rowCount, columnCount);
-			cudaThreadSynchronize();
-
-			//cudaMemcpy(matrix, deviceMatrix, rowCount * columnCount * sizeof(double), cudaMemcpyDeviceToHost);
-
-			//PrintMatrix(matrix, rowCount, columnCount);
+			CalculateRows << <1024, 1024 >> > (deviceMatrix, rowCount, columnCount, i, i + offset);
+			//SetCurrentZero << <1024, 1024 >> > (deviceMatrix, i, i + offset, rowCount, columnCount);
 		}
-	}
-	catch (std::runtime_error& e)
-	{
-		std::cerr << rowCount << ' ' << columnCount << '\n';
-		std::cerr << "offset: " << offset << '\n';
-		std::cerr << e.what() << '\n';
-	}
-
-	cudaMemcpy(matrix, deviceMatrix, rowCount * columnCount * sizeof(double), cudaMemcpyDeviceToHost);
-	PrintMatrix(matrix, rowCount, columnCount);
-
-	auto rank = 0;
-
-	for (int i = 0; i < rowCount; i++)
-	{
-		auto isZero = true;
-
-		for (int j = 0; j < columnCount; j++)
+		catch (std::runtime_error& e)
 		{
-			if (Abs(matrix[j * rowCount + i]) > EPSILON)
-			{
-				isZero = false;
-				break;
-			}
+			std::cerr << rowCount << ' ' << columnCount << '\n';
+			std::cerr << "offset: " << offset << '\n';
+			std::cerr << e.what() << '\n';
 		}
-
-		rank += !isZero;
 	}
 
-	cudaFree(deviceMatrix);
+	//cudaFree(deviceMatrix);
+
+	auto rank = columnCount - offset > rowCount
+		? rowCount
+		: columnCount - offset;
 
 	return rank;
 }
@@ -206,23 +186,37 @@ int main()
 {
 	int rowCount, columnCount;
 	std::cin >> rowCount >> columnCount;
-
 	auto matrix = new double[rowCount * columnCount];
+
+	auto isTransposed = rowCount < columnCount;
+
+	if (isTransposed)
+	{
+		auto temp = rowCount;
+		rowCount = columnCount;
+		columnCount = temp;
+	}
 
 	for (int i = 0; i < rowCount; i++)
 	{
 		for (int j = 0; j < columnCount; j++)
 		{
-			std::cin >> matrix[j * rowCount + i];
+			if (isTransposed)
+			{
+				//std::cin >> matrix[i * columnCount + j];
+				matrix[i * columnCount + j] = rand() % 200 - 100;
+			}
+			else
+			{
+				//std::cin >> matrix[j * rowCount + i];
+				matrix[j * rowCount + i] = rand() % 200 - 100;
+			}
 		}
 	}
 
 	auto rank = FindRank(matrix, rowCount, columnCount);
-	if (rank < 0)
-		return -1;
 	std::cout << rank << std::endl;
 
-	PrintMatrix(matrix, rowCount, columnCount);
 
 	delete[] matrix;
 }
