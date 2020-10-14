@@ -126,7 +126,7 @@ __host__ int GetMaxIndexInColumn(double* deviceMatrix,
 	}
 }
 
-__host__ int FindRank(double* matrix, int rowCount, int columnCount)
+__host__ int FindRank(double* matrix, int rowCount, int columnCount, int size)
 {
 	double* deviceMatrix;
 	cudaMalloc(&deviceMatrix, rowCount * columnCount * sizeof(double));
@@ -147,12 +147,12 @@ __host__ int FindRank(double* matrix, int rowCount, int columnCount)
 
 		if (maxIndex != i)
 		{
-			SwapRows<<<1024, 1024>>>(deviceMatrix, i, maxIndex, i + offset, rowCount, columnCount);
+			SwapRows<<<size, size >>>(deviceMatrix, i, maxIndex, i + offset, rowCount, columnCount);
 		}
 
-		CalculateCurrentRow<<<1024, 1024 >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
-		CalculateRows<<<1024, 1024 >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
-		SetCurrentZero<<<1024, 1024>>>(deviceMatrix, i, i + offset, rowCount, columnCount);
+		CalculateCurrentRow<<<size, size >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
+		CalculateRows<<<size, size >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
+		SetCurrentZero<<<size, size >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
 	}
 
 	cudaFree(deviceMatrix);
@@ -187,14 +187,47 @@ int main()
 	{
 		for (int j = 0; j < columnCount; j++)
 		{
-			std::cin >> (isTransposed
-				? matrix[i * columnCount + j]
-				: matrix[j * rowCount + i]);
+			//std::cin >> (isTransposed
+			//	? matrix[i * columnCount + j]
+			//	: matrix[j * rowCount + i]);
+			matrix[i * columnCount + j] = rand() % 200 - 100;
 		}
 	}
 
-	auto rank = FindRank(matrix, rowCount, columnCount);
-	std::cout << rank << std::endl;
+	cudaEvent_t start, stop;
+	{
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord(start);
+
+		auto rank = FindRank(matrix, rowCount, columnCount, 32);
+		//std:: cout << rank << '\n';
+
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+
+		float milliseconds = 0;
+		cudaEventElapsedTime(&milliseconds, start, stop);
+		std::cout << milliseconds / 1000 << ' ';
+	}
+
+	{
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord(start);
+
+		auto rank = FindRank(matrix, rowCount, columnCount, 1024);
+		//std:: cout << rank << '\n';
+
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+
+		float milliseconds = 0;
+		cudaEventElapsedTime(&milliseconds, start, stop);
+		std::cout << milliseconds / 1000 << std::endl;
+	}
 
 	delete[] matrix;
 }

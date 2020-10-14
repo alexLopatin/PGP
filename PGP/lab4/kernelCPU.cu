@@ -1,90 +1,167 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include <stdio.h>
 #include <iostream>
+
+#include <thrust/extrema.h>
+#include <thrust/device_vector.h>
 #include <ctime>
 
-void ReadArray(double* arr, int size);
-void WriteArray(double* arr, int size);
+using namespace thrust;
 
-void Operate(double* firstDevice, double* secondDevice, double* resultDevice, int vectorLength);
+const double EPSILON = 10E-8;
 
-double Min(double a, double b);
+void SwapRows(double* matrix,
+	int currentRow,
+	int otherRow,
+	int currentColumn,
+	int rowCount,
+	int columnCount)
+{
+	for (auto i = 0; i < columnCount; i++)
+	{
+		auto temp = matrix[i * rowCount + currentRow];
+		matrix[i * rowCount + currentRow] = matrix[i * rowCount + otherRow];
+		matrix[i * rowCount + otherRow] = temp;
+	}
+}
+
+void CalculateCurrentRow(double* matrix,
+	int currentRow,
+	int currentColumn,
+	int rowCount,
+	int columnCount)
+{
+	for (auto i = 0; i < columnCount; i++)
+	{
+		matrix[i * rowCount + currentRow] /= matrix[currentColumn * rowCount + currentRow];
+	}
+}
+
+void CalculateRows(double* matrix,
+	int currentRow,
+	int currentColumn,
+	int rowCount,
+	int columnCount)
+{
+	for (int j = 0; j < rowCount; j++)
+	{
+		for (int k = 0; k < columnCount; k++)
+		{
+			matrix[k * rowCount + j] -=
+				matrix[currentColumn * rowCount + j] * matrix[k * rowCount + currentRow];
+		}
+	}
+}
+
+void SetCurrentZero(double* matrix,
+	int currentRow,
+	int currentColumn,
+	int rowCount,
+	int columnCount)
+{
+	for (auto i = 0; i < columnCount; i++)
+	{
+		matrix[i * rowCount + currentRow] = 0;
+		matrix[currentColumn * rowCount + i] = 0;
+	}
+}
+
+int GetMaxIndexInColumn(double* deviceMatrix,
+	int rowIndex,
+	int columnIndex,
+	int rowCount,
+	int columnCount)
+{
+	auto maxElem = 0.0;
+	auto maxIndex = 0;
+
+	for (int i = columnIndex * rowCount + rowIndex; i < columnIndex * rowCount + rowCount; i++)
+	{
+		if (fabs(deviceMatrix[i]) > maxElem)
+		{
+			maxIndex = i;
+			maxElem = fabs(deviceMatrix[i]);
+		}
+	}
+
+	if (fabs(maxElem) < EPSILON)
+	{
+		return -1;
+	}
+
+	return maxIndex - columnIndex * rowCount;
+}
+
+int FindRank(double* matrix, int rowCount, int columnCount)
+{
+	auto offset = 0;
+
+	for (int i = 0; i < rowCount && i + offset < columnCount; i++)
+	{
+		auto maxIndex = GetMaxIndexInColumn(matrix, i, i + offset, rowCount, columnCount);
+
+		if (maxIndex < 0)
+		{
+			offset++;
+			i--;
+			continue;
+		}
+
+		if (maxIndex != i)
+		{
+			SwapRows(matrix, i, maxIndex, i + offset, rowCount, columnCount);
+		}
+
+		CalculateCurrentRow(matrix, i, i + offset, rowCount, columnCount);
+		CalculateRows(matrix, i, i + offset, rowCount, columnCount);
+		SetCurrentZero(matrix, i, i + offset, rowCount, columnCount);
+	}
+
+	auto rank = columnCount - offset > rowCount
+		? rowCount
+		: columnCount - offset;
+
+	return rank;
+}
 
 int main()
 {
-	int vectorLength;
-	std::cin >> vectorLength;
+	std::ios_base::sync_with_stdio(false);
+	std::cin.tie(nullptr);
+
+	int rowCount, columnCount;
+	std::cin >> rowCount >> columnCount;
+
+	auto isTransposed = rowCount < columnCount;
+
+	if (isTransposed)
+	{
+		auto temp = rowCount;
+		rowCount = columnCount;
+		columnCount = temp;
+	}
+
+	auto matrix = new double[rowCount * columnCount];
 
 	clock_t begin = clock();
 
-	double* first;
-	double* second;
-	double* result;
+	for (int i = 0; i < rowCount; i++)
+	{
+		for (int j = 0; j < columnCount; j++)
+		{
+			std::cin >> (isTransposed
+				? matrix[i * columnCount + j]
+				: matrix[j * rowCount + i]);
 
-	first = (double*)malloc(sizeof(double) * vectorLength);
-	second = (double*)malloc(sizeof(double) * vectorLength);
-	result = (double*)malloc(sizeof(double) * vectorLength);
+		}
+	}
 
-	ReadArray(first, vectorLength);
-	ReadArray(second, vectorLength);
-
-	Operate(first, second, result, vectorLength);
+	auto rank = FindRank(matrix, rowCount, columnCount);
 
 	clock_t end = clock();
 
 	std::cout << double(end - begin) / CLOCKS_PER_SEC << std::endl;
 
-	WriteArray(result, vectorLength);
-}
-
-void ReadArray(double* arr, int size)
-{
-	for (int i = 0; i < size; i++)
-	{
-		std::cin >> arr[i];
-	}
-}
-
-void WriteArray(double* arr, int size)
-{
-	for (int i = 0; i < size; i++)
-	{
-		std::cout << arr[i];
-
-		if (i < size - 1)
-		{
-			std::cout << ' ';
-		}
-	}
-}
-
-int Min(int a, int b)
-{
-	return (a > b)
-		? b
-		: a;
-}
-
-int Max(int a, int b)
-{
-	return (a < b)
-		? b
-		: a;
-}
-
-void Operate(double* firstDevice, double* secondDevice, double* resultDevice, int vectorLength)
-{
-	for (int i = 0; i < vectorLength - 1; i++)
-	{
-		resultDevice[i] = Min(firstDevice[i], secondDevice[i]);
-	}
-}
-
-double Min(double a, double b)
-{
-	return (a > b)
-		? b
-		: a;
+	delete[] matrix;
 }
