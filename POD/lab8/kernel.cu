@@ -12,7 +12,7 @@
 
 #include <thrust/extrema.h>
 #include <thrust/device_vector.h>
-#include "../../../../../../../Program Files (x86)/Microsoft SDKs/MPI/Include/mpi.h"
+//#include "../../../../../../../Program Files (x86)/Microsoft SDKs/MPI/Include/mpi.h"
 
 using namespace thrust;
 
@@ -98,7 +98,7 @@ double Abs(double a)
 }
 
 __global__ void Kernel(
-	double *data, double *next,
+	double* data, double* next,
 	int blockSizeX, int blockSizeY, int blockSizeZ,
 	double h2x, double h2y, double h2z)
 {
@@ -131,36 +131,36 @@ __global__ void CopyFace(
 
 	switch (side)
 	{
-		case Side::Left:
-			for (int j = 0; j < blockSizeY; j++)
-				for (int k = 0; k < blockSizeZ; k++)
-					dest[j + k * blockSizeY] = data[DeviceGetIndex(blockSizeX - 1, j, k, blockSizeX, blockSizeY, blockSizeZ)];
-			break;
-		case Side::Front:
-			for (int i = 0; i < blockSizeX; i++)
-				for (int k = 0; k < blockSizeZ; k++)
-					dest[i + k * blockSizeX] = data[DeviceGetIndex(i, blockSizeY - 1, k, blockSizeX, blockSizeY, blockSizeZ)];
-			break;
-		case Side::Down:
-			for (int i = 0; i < blockSizeX; i++)
-				for (int j = 0; j < blockSizeY; j++)
-					dest[i + j * blockSizeX] = data[DeviceGetIndex(i, j, blockSizeZ - 1, blockSizeX, blockSizeY, blockSizeZ)];
-			break;
-		case Side::Right:
-			for (int j = 0; j < blockSizeY; j++)
-				for (int k = 0; k < blockSizeZ; k++)
-					dest[j + k * blockSizeY] = data[DeviceGetIndex(0, j, k, blockSizeX, blockSizeY, blockSizeZ)];
-			break;
-		case Side::Back:
-			for (int i = 0; i < blockSizeX; i++)
-				for (int k = 0; k < blockSizeZ; k++)
-					dest[i + k * blockSizeX] = data[DeviceGetIndex(i, 0, k, blockSizeX, blockSizeY, blockSizeZ)];
-			break;
-		case Side::Up:
-			for (int i = 0; i < blockSizeX; i++)
-				for (int j = 0; j < blockSizeY; j++)
-					dest[i + j * blockSizeX] = data[DeviceGetIndex(i, j, 0, blockSizeX, blockSizeY, blockSizeZ)];
-			break;
+	case Side::Left:
+		for (int j = idx; j < blockSizeY; j += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
+				dest[j + k * blockSizeY] = data[DeviceGetIndex(0, j, k, blockSizeX, blockSizeY, blockSizeZ)];
+		break;
+	case Side::Front:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
+				dest[i + k * blockSizeX] = data[DeviceGetIndex(i, 0, k, blockSizeX, blockSizeY, blockSizeZ)];
+		break;
+	case Side::Down:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int j = idy; j < blockSizeY; j += offsety)
+				dest[i + j * blockSizeX] = data[DeviceGetIndex(i, j, 0, blockSizeX, blockSizeY, blockSizeZ)];
+		break;
+	case Side::Right:
+		for (int j = idx; j < blockSizeY; j += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
+				dest[j + k * blockSizeY] = data[DeviceGetIndex(blockSizeX - 1, j, k, blockSizeX, blockSizeY, blockSizeZ)];
+		break;
+	case Side::Back:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
+				dest[i + k * blockSizeX] = data[DeviceGetIndex(i, blockSizeY - 1, k, blockSizeX, blockSizeY, blockSizeZ)];
+		break;
+	case Side::Up:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int j = idy; j < blockSizeY; j += offsety)
+				dest[i + j * blockSizeX] = data[DeviceGetIndex(i, j, blockSizeZ - 1, blockSizeX, blockSizeY, blockSizeZ)];
+		break;
 	}
 }
 
@@ -177,34 +177,34 @@ __global__ void PasteFace(
 	switch (side)
 	{
 	case Side::Left:
-		for (int j = 0; j < blockSizeY; j++)
-			for (int k = 0; k < blockSizeZ; k++)
-				data[DeviceGetIndex(blockSizeX, j, k, blockSizeX, blockSizeY, blockSizeZ)] = source[j + k * blockSizeY];
-		break;
-	case Side::Front:
-		for (int i = 0; i < blockSizeX; i++)
-			for (int k = 0; k < blockSizeZ; k++)
-				data[DeviceGetIndex(i, blockSizeY, k, blockSizeX, blockSizeY, blockSizeZ)] = source[i + k * blockSizeX];
-		break;
-	case Side::Down:
-		for (int i = 0; i < blockSizeX; i++)
-			for (int j = 0; j < blockSizeY; j++)
-				data[DeviceGetIndex(i, j, blockSizeZ, blockSizeX, blockSizeY, blockSizeZ)] = source[i + j * blockSizeX];
-		break;
-	case Side::Right:
-		for (int j = 0; j < blockSizeY; j++)
-			for (int k = 0; k < blockSizeZ; k++)
+		for (int j = idx; j < blockSizeY; j += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
 				data[DeviceGetIndex(-1, j, k, blockSizeX, blockSizeY, blockSizeZ)] = source[j + k * blockSizeY];
 		break;
-	case Side::Back:
-		for (int i = 0; i < blockSizeX; i++)
-			for (int k = 0; k < blockSizeZ; k++)
+	case Side::Front:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
 				data[DeviceGetIndex(i, -1, k, blockSizeX, blockSizeY, blockSizeZ)] = source[i + k * blockSizeX];
 		break;
-	case Side::Up:
-		for (int i = 0; i < blockSizeX; i++)
-			for (int j = 0; j < blockSizeY; j++)
+	case Side::Down:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int j = idy; j < blockSizeY; j += offsety)
 				data[DeviceGetIndex(i, j, -1, blockSizeX, blockSizeY, blockSizeZ)] = source[i + j * blockSizeX];
+		break;
+	case Side::Right:
+		for (int j = idx; j < blockSizeY; j += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
+				data[DeviceGetIndex(blockSizeX, j, k, blockSizeX, blockSizeY, blockSizeZ)] = source[j + k * blockSizeY];
+		break;
+	case Side::Back:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int k = idy; k < blockSizeZ; k += offsety)
+				data[DeviceGetIndex(i, blockSizeY, k, blockSizeX, blockSizeY, blockSizeZ)] = source[i + k * blockSizeX];
+		break;
+	case Side::Up:
+		for (int i = idx; i < blockSizeX; i += offsetx)
+			for (int j = idy; j < blockSizeY; j += offsety)
+				data[DeviceGetIndex(i, j, blockSizeZ, blockSizeX, blockSizeY, blockSizeZ)] = source[i + j * blockSizeX];
 		break;
 	}
 }
@@ -231,18 +231,22 @@ __global__ void ErrorKernel(
 
 int main(int argc, char* argv[])
 {
-	int numproc, id;
-	MPI_Status status;
+	int numproc, id, numDevice;
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &numproc);
 	MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
+	cudaGetDeviceCount(&numDevice);
+	cudaSetDevice(id % numDevice);
+
 	auto isMainProcess = !id;
+	int filePathSize;
 
 	if (isMainProcess)
 	{
 		ReadInputData();
+		filePathSize = FilePath.size();
 	}
 
 	MPI_Bcast(&GridSize, 3, MPI_INT, 0, MPI_COMM_WORLD);
@@ -251,6 +255,11 @@ int main(int argc, char* argv[])
 	MPI_Bcast(&BoundaryConditions, 6, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&Eps, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&InitValue, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+
+	MPI_Bcast(&filePathSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	FilePath.resize(filePathSize);
+	MPI_Bcast((char*)FilePath.c_str(), filePathSize, MPI_CHAR, 0, MPI_COMM_WORLD);
 
 	auto errorData = new double[numproc];
 	auto data = (double*)malloc(sizeof(double) * (BlockSize[0] + 2) * (BlockSize[1] + 2) * (BlockSize[2] + 2));
@@ -307,8 +316,6 @@ int main(int argc, char* argv[])
 
 	MPI_Status statuses[6];
 
-	auto it = 0;
-
 	do
 	{
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -316,43 +323,49 @@ int main(int argc, char* argv[])
 		//Отправка
 
 		if (bx < GridSize[0] - 1) {
-			CopyFace<<<256, 256>>>(deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Right);
-			cudaMemcpy(deviceBuff, buffOut[0], sizeof(double) * BlockSize[1] * BlockSize[2], cudaMemcpyDeviceToHost);
+			CopyFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Right);
+			cudaDeviceSynchronize();
+			cudaMemcpy(buffOut[0], deviceBuff, sizeof(double) * BlockSize[1] * BlockSize[2], cudaMemcpyDeviceToHost);
 
 			MPI_Isend(buffOut[0], BlockSize[1] * BlockSize[2], MPI_DOUBLE, GetBlockIndex(bx + 1, by, bz), id, MPI_COMM_WORLD, &sendRequests[0]);
 		}
 
 		if (by < GridSize[1] - 1) {
-			CopyFace<<<256, 256>>>(deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Back);
-			cudaMemcpy(deviceBuff, buffOut[1], sizeof(double) * BlockSize[0] * BlockSize[2], cudaMemcpyDeviceToHost);
+			CopyFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Back);
+			cudaDeviceSynchronize();
+			cudaMemcpy(buffOut[1], deviceBuff, sizeof(double) * BlockSize[0] * BlockSize[2], cudaMemcpyDeviceToHost);
 
 			MPI_Isend(buffOut[1], BlockSize[0] * BlockSize[2], MPI_DOUBLE, GetBlockIndex(bx, by + 1, bz), id, MPI_COMM_WORLD, &sendRequests[1]);
 		}
 
 		if (bz < GridSize[2] - 1) {
-			CopyFace<<<256, 256>>>(deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Up);
-			cudaMemcpy(deviceBuff, buffOut[2], sizeof(double) * BlockSize[0] * BlockSize[1], cudaMemcpyDeviceToHost);
+			CopyFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Up);
+			cudaDeviceSynchronize();
+			cudaMemcpy(buffOut[2], deviceBuff, sizeof(double) * BlockSize[0] * BlockSize[1], cudaMemcpyDeviceToHost);
 
 			MPI_Isend(buffOut[2], BlockSize[0] * BlockSize[1], MPI_DOUBLE, GetBlockIndex(bx, by, bz + 1), id, MPI_COMM_WORLD, &sendRequests[2]);
 		}
 
 		if (bx > 0) {
-			CopyFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Left);
-			cudaMemcpy(deviceBuff, buffOut[3], sizeof(double) * BlockSize[1] * BlockSize[2], cudaMemcpyDeviceToHost);
+			CopyFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Left);
+			cudaDeviceSynchronize();
+			cudaMemcpy(buffOut[3], deviceBuff, sizeof(double) * BlockSize[1] * BlockSize[2], cudaMemcpyDeviceToHost);
 
 			MPI_Isend(buffOut[3], BlockSize[1] * BlockSize[2], MPI_DOUBLE, GetBlockIndex(bx - 1, by, bz), id, MPI_COMM_WORLD, &sendRequests[3]);
 		}
 
 		if (by > 0) {
-			CopyFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Front);
-			cudaMemcpy(deviceBuff, buffOut[4], sizeof(double) * BlockSize[0] * BlockSize[2], cudaMemcpyDeviceToHost);
+			CopyFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Front);
+			cudaDeviceSynchronize();
+			cudaMemcpy(buffOut[4], deviceBuff, sizeof(double) * BlockSize[0] * BlockSize[2], cudaMemcpyDeviceToHost);
 
 			MPI_Isend(buffOut[4], BlockSize[0] * BlockSize[2], MPI_DOUBLE, GetBlockIndex(bx, by - 1, bz), id, MPI_COMM_WORLD, &sendRequests[4]);
 		}
 
 		if (bz > 0) {
-			CopyFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Down);
-			cudaMemcpy(deviceBuff, buffOut[5], sizeof(double) * BlockSize[0] * BlockSize[1], cudaMemcpyDeviceToHost);
+			CopyFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Down);
+			cudaDeviceSynchronize();
+			cudaMemcpy(buffOut[5], deviceBuff, sizeof(double) * BlockSize[0] * BlockSize[1], cudaMemcpyDeviceToHost);
 
 			MPI_Isend(buffOut[5], BlockSize[0] * BlockSize[1], MPI_DOUBLE, GetBlockIndex(bx, by, bz - 1), id, MPI_COMM_WORLD, &sendRequests[5]);
 		}
@@ -382,8 +395,10 @@ int main(int argc, char* argv[])
 					buffIn[0][j + k * BlockSize[1]] = BoundaryConditions[Side::Left];
 		}
 		cudaMemcpy(deviceBuff, buffIn[0], sizeof(double) * BlockSize[1] * BlockSize[2], cudaMemcpyHostToDevice);
-		PasteFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Left);
-
+		PasteFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Left);
+		cudaDeviceSynchronize();
+		PasteFace << <32, 32 >> > (deviceNext, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Left);
+		cudaDeviceSynchronize();
 
 		if (!(by > 0))
 		{
@@ -392,8 +407,10 @@ int main(int argc, char* argv[])
 					buffIn[1][i + k * BlockSize[0]] = BoundaryConditions[Side::Front];
 		}
 		cudaMemcpy(deviceBuff, buffIn[1], sizeof(double) * BlockSize[0] * BlockSize[2], cudaMemcpyHostToDevice);
-		PasteFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Front);
-
+		PasteFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Front);
+		cudaDeviceSynchronize();
+		PasteFace << <32, 32 >> > (deviceNext, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Front);
+		cudaDeviceSynchronize();
 
 		if (!(bz > 0))
 		{
@@ -402,8 +419,10 @@ int main(int argc, char* argv[])
 					buffIn[2][i + j * BlockSize[0]] = BoundaryConditions[Side::Down];
 		}
 		cudaMemcpy(deviceBuff, buffIn[2], sizeof(double) * BlockSize[0] * BlockSize[1], cudaMemcpyHostToDevice);
-		PasteFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Down);
-
+		PasteFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Down);
+		cudaDeviceSynchronize();
+		PasteFace << <32, 32 >> > (deviceNext, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Down);
+		cudaDeviceSynchronize();
 
 		if (!(bx < GridSize[0] - 1))
 		{
@@ -412,8 +431,10 @@ int main(int argc, char* argv[])
 					buffIn[3][j + k * BlockSize[1]] = BoundaryConditions[Side::Right];
 		}
 		cudaMemcpy(deviceBuff, buffIn[3], sizeof(double) * BlockSize[1] * BlockSize[2], cudaMemcpyHostToDevice);
-		PasteFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Right);
-
+		PasteFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Right);
+		cudaDeviceSynchronize();
+		PasteFace << <32, 32 >> > (deviceNext, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Right);
+		cudaDeviceSynchronize();
 
 		if (!(by < GridSize[1] - 1))
 		{
@@ -421,9 +442,11 @@ int main(int argc, char* argv[])
 				for (int k = 0; k < BlockSize[2]; k++)
 					buffIn[4][i + k * BlockSize[0]] = BoundaryConditions[Side::Back];
 		}
-		cudaMemcpy(deviceBuff, buffIn[4], sizeof(double)* BlockSize[0] * BlockSize[2], cudaMemcpyHostToDevice);
-		PasteFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Back);
-
+		cudaMemcpy(deviceBuff, buffIn[4], sizeof(double) * BlockSize[0] * BlockSize[2], cudaMemcpyHostToDevice);
+		PasteFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Back);
+		cudaDeviceSynchronize();
+		PasteFace << <32, 32 >> > (deviceNext, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Back);
+		cudaDeviceSynchronize();
 
 		if (!(bz < GridSize[2] - 1))
 		{
@@ -432,15 +455,20 @@ int main(int argc, char* argv[])
 					buffIn[5][i + j * BlockSize[0]] = BoundaryConditions[Side::Up];
 		}
 		cudaMemcpy(deviceBuff, buffIn[5], sizeof(double) * BlockSize[0] * BlockSize[1], cudaMemcpyHostToDevice);
-		PasteFace << <256, 256 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Up);
+		PasteFace << <32, 32 >> > (deviceData, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Up);
+		cudaDeviceSynchronize();
+		PasteFace << <32, 32 >> > (deviceNext, deviceBuff, BlockSize[0], BlockSize[1], BlockSize[2], Side::Up);
+		cudaDeviceSynchronize();
 
-		Kernel<<<256, 256, 256>>>(
+		Kernel << <16, 16, 16 >> > (
 			deviceData, deviceNext,
 			BlockSize[0], BlockSize[1], BlockSize[2],
 			h2x, h2y, h2z);
-		ErrorKernel<<<256, 256, 256>>>(
+		cudaDeviceSynchronize();
+		ErrorKernel << <16, 16, 16 >> > (
 			deviceData, deviceNext,
 			BlockSize[0], BlockSize[1], BlockSize[2]);
+		cudaDeviceSynchronize();
 
 		auto indexPointer = device_pointer_cast(deviceData);
 		error = *(max_element(indexPointer, indexPointer + (BlockSize[0] + 2) * (BlockSize[1] + 2) * (BlockSize[2] + 2), comparator));
@@ -450,63 +478,55 @@ int main(int argc, char* argv[])
 		for (int i = 0; i < numproc; i++)
 			error = Max(error, errorData[i]);
 
-		if(isMainProcess)
-			printf("it-%d # error: %f\n", it, error);
-
 		temp = deviceNext;
 		deviceNext = deviceData;
 		deviceData = temp;
-		it++;
 	} while (error >= Eps);
 
-	cudaMemcpy(data, deviceData, sizeof(double)* (BlockSize[0] + 2)* (BlockSize[1] + 2)* (BlockSize[2] + 2), cudaMemcpyDeviceToHost);
+	cudaMemcpy(data, deviceData, sizeof(double) * (BlockSize[0] + 2) * (BlockSize[1] + 2) * (BlockSize[2] + 2), cudaMemcpyDeviceToHost);
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	if (!isMainProcess)
-	{
-		for (int k = 0; k < BlockSize[2]; k++)
-		{
-			for (int j = 0; j < BlockSize[1]; j++)
-			{
-				for (int i = -1; i <= BlockSize[0]; i++)
-					buffIn[0][i + 1] = data[GetIndex(i, j, k)];
-				MPI_Send(buffIn[0], (BlockSize[0] + 2), MPI_DOUBLE, 0, id, MPI_COMM_WORLD);
-			}
-		}
-	}
-	else
-	{
-		std::ofstream output(FilePath, std::ios::out);
-		output << std::scientific << std::setprecision(7);
+	MPI_File fp;
+	MPI_Datatype numChar, filetype, xySlice;
 
-		for (int kb = 0; kb < GridSize[2]; kb++)
-		{
-			for (int k = 0; k < BlockSize[2]; k++)
+	auto doubleSize = 15;
+	auto charData = new char[BlockSize[0] * BlockSize[1] * BlockSize[2] * doubleSize];
+
+	for (int k = 0; k < BlockSize[2]; k++)
+		for (int j = 0; j < BlockSize[1]; j++)
+			for (int i = 0; i < BlockSize[0]; i++)
 			{
-				for (int jb = 0; jb < GridSize[1]; jb++)
+				auto index = i + j * BlockSize[0] + k * BlockSize[0] * BlockSize[1];
+
+				auto length = sprintf(&charData[index * doubleSize], "%.*e ", 7, data[GetIndex(i, j, k)]);
+
+				if (length < doubleSize)
 				{
-					for (int j = 0; j < BlockSize[1]; j++)
-					{
-						for (int ib = 0; ib < GridSize[0]; ib++)
-						{
-							if (GetBlockIndex(ib, jb, kb) == 0)
-								for (int i = -1; i <= BlockSize[0]; i++)
-									buffIn[0][i + 1] = data[GetIndex(i, j, k)];
-							else
-								MPI_Recv(buffIn[0], (BlockSize[0] + 2), MPI_DOUBLE, GetBlockIndex(ib, jb, kb), GetBlockIndex(ib, jb, kb), MPI_COMM_WORLD, &status);
-
-							for (int i = 0; i < BlockSize[0]; i++)
-							{
-								//std::cerr << buff[0][i + 1 + (j + 1) * (BlockSize[0] + 2)] << ' ';
-								output << buffIn[0][i + 1] << ' ';
-							}
-						}
-					}
+					charData[index * doubleSize + length] = ' ';
 				}
 			}
-		}
-	}
+
+	MPI_Type_contiguous(doubleSize, MPI_CHAR, &numChar);
+	MPI_Type_commit(&numChar);
+
+	MPI_Type_vector(BlockSize[1], BlockSize[0], BlockSize[0] * GridSize[0], numChar, &xySlice);
+	MPI_Type_commit(&xySlice);
+
+	MPI_Type_create_hvector(BlockSize[2], 1, doubleSize * GridSize[0] * GridSize[1] * BlockSize[0] * BlockSize[1], xySlice, &filetype);
+	MPI_Type_commit(&filetype);
+
+	auto offset = BlockSize[0] * bx
+		+ BlockSize[1] * BlockSize[0] * GridSize[0] * by
+		+ BlockSize[2] * BlockSize[1] * BlockSize[0] * GridSize[1] * GridSize[0] * bz;
+
+	//MPI_File_delete(FilePath.c_str(), MPI_INFO_NULL);
+	MPI_File_open(MPI_COMM_WORLD, FilePath.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fp);
+	MPI_File_set_view(fp, offset * doubleSize, MPI_CHAR, filetype, "native", MPI_INFO_NULL);
+
+	MPI_File_write_all(fp, charData, BlockSize[0] * BlockSize[1] * BlockSize[2] * doubleSize, MPI_CHAR, MPI_STATUS_IGNORE);
+
+	MPI_File_close(&fp);
 
 	MPI_Finalize();
 
