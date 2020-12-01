@@ -1,233 +1,179 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+#include <cstdio>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
+#include <math.h>
 #include <iostream>
+#include <algorithm>
 
-#include <thrust/extrema.h>
-#include <thrust/device_vector.h>
-
-using namespace thrust;
-
-const double EPSILON = 10E-8;
-
-struct Comparator
-{
-	__host__ __device__ bool operator()(double a, double b)
-	{
-		return fabs(a) < fabs(b) && fabs(b) >= 10E-8;
-	}
-};
-
-__global__ void SwapRows(double* deviceMatrix,
-	int currentRow,
-	int otherRow,
-	int currentColumn,
-	int rowCount,
-	int columnCount)
+__global__ void Histohram(int* devCount, int* arr, int size)
 {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	int offsetx = blockDim.x * gridDim.x;
 
-	for (auto i = idx; i < columnCount; i += offsetx)
+	for (int i = idx; i < size; i+= offsetx)
 	{
-		auto temp = deviceMatrix[i * rowCount + currentRow];
-		deviceMatrix[i * rowCount + currentRow] = deviceMatrix[i * rowCount + otherRow];
-		deviceMatrix[i * rowCount + otherRow] = temp;
+		atomicAdd(&devCount[arr[i]], 1);
 	}
 }
 
-__global__ void CalculateCurrentRow(double* deviceMatrix,
-	int currentRow,
-	int currentColumn,
-	int rowCount,
-	int columnCount)
-{
-	int idx = blockDim.x * blockIdx.x + threadIdx.x + currentColumn + 1;
-	int offsetx = blockDim.x * gridDim.x;
-
-	for (auto i = idx; i < columnCount; i += offsetx)
-	{
-		deviceMatrix[i * rowCount + currentRow] /= deviceMatrix[currentColumn * rowCount + currentRow];
-	}
-}
-
-__global__ void CalculateRows(double* deviceMatrix,
-	int currentRow,
-	int currentColumn,
-	int rowCount,
-	int columnCount)
-{
-	int idx = threadIdx.x + currentRow + 1;
-	int offsetx = blockDim.x;
-	int idy = blockIdx.x + currentColumn + 1;
-	int offsety = gridDim.x;
-
-	for (int j = idx; j < rowCount; j += offsetx)
-	{
-		for (int k = idy; k < columnCount; k += offsety)
-		{
-			deviceMatrix[k * rowCount + j] -=
-				deviceMatrix[currentColumn * rowCount + j] * deviceMatrix[k * rowCount + currentRow];
-		}
-	}
-}
-
-__global__ void SetCurrentZero(double* deviceMatrix,
-	int currentRow,
-	int currentColumn,
-	int rowCount,
-	int columnCount)
+__global__ void CountSort(int* devScan, int* arr, int* out, int size)
 {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	int offsetx = blockDim.x * gridDim.x;
 
-	for (auto i = idx; i < columnCount; i += offsetx)
+	for (int i = idx; i < size; i += offsetx)
 	{
-		deviceMatrix[i * rowCount + currentRow] = 0;
-		deviceMatrix[currentColumn * rowCount + i] = 0;
+		out[atomicAdd(&devScan[arr[i]], -1) - 1] = arr[i];
 	}
 }
 
-Comparator comparator;
+const int BLOCK_SIZE = 256;
 
-__host__ int GetMaxIndexInColumn(double* deviceMatrix,
-	int rowIndex,
-	int columnIndex,
-	int rowCount,
-	int columnCount)
+__global__ void KernelBlockScan(int* devArr, int* newDevArr)
 {
-	if (columnIndex * rowCount == 0)
+	int blockSize = blockDim.x;
+	__shared__ int arr[BLOCK_SIZE];
+
+	int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	arr[threadIdx.x] = devArr[idx];
+	__syncthreads();
+
+	int d = 1;
+
+	while (d < blockSize)
 	{
-		auto indexPointer = device_pointer_cast(deviceMatrix + columnIndex * rowCount);
-		auto maxIndexPointer = max_element(indexPointer + rowIndex, indexPointer + rowCount, comparator);
-		auto maxIndex = maxIndexPointer - indexPointer;
+		if (2 * d + threadIdx.x * 2 * d - 1 < blockSize)
+			arr[2 * d + threadIdx.x * 2 * d - 1] += arr[d + threadIdx.x * 2 * d - 1];
+		d *= 2;
+		__syncthreads();
+	}
 
-		auto elem = 0.0;
-		cudaMemcpy(&elem, deviceMatrix + columnIndex * rowCount + maxIndex, sizeof(double), cudaMemcpyDeviceToHost);
+	int last = 0;
 
-		if (fabs(elem) < EPSILON)
+	if (threadIdx.x == blockSize - 1)
+	{
+		last = arr[threadIdx.x];
+		arr[threadIdx.x] = 0;
+	}
+
+	d /= 2;
+
+	__syncthreads();
+	
+	while (d >= 1)
+	{
+		if (d * 2 * threadIdx.x + 2 * d - 1 < blockSize)
 		{
-			return -1;
+			auto t = arr[d * 2 * threadIdx.x + d - 1];
+			arr[d * 2 * threadIdx.x + d - 1] = arr[d * 2 * threadIdx.x + 2 * d - 1];
+			arr[d * 2 * threadIdx.x + 2 * d - 1] += t;
 		}
 
-		return maxIndex;
+		d /= 2;
+		__syncthreads();
+	}
+
+	if (threadIdx.x == blockSize - 1)
+	{
+		devArr[idx] = last;
+		newDevArr[blockIdx.x] = last;
 	}
 	else
 	{
-		auto indexPointer = device_pointer_cast(deviceMatrix + columnIndex * rowCount);
-		auto maxIndexPointer = thrust::max_element(indexPointer - 1 + rowIndex, indexPointer + rowCount, comparator);
-		auto maxIndex = maxIndexPointer - indexPointer;
-		if (maxIndex == rowIndex - 1)
-		{
-			return -1;
-		}
-
-		return maxIndex;
+		devArr[idx] = arr[threadIdx.x + 1];
 	}
 }
 
-__host__ int FindRank(double* matrix, int rowCount, int columnCount, int size)
+__global__ void KernelBlockShift(int* devArr, int* newArr)
 {
-	double* deviceMatrix;
-	cudaMalloc(&deviceMatrix, rowCount * columnCount * sizeof(double));
-	cudaMemcpy(deviceMatrix, matrix, rowCount * columnCount * sizeof(double), cudaMemcpyHostToDevice);
+	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-	auto offset = 0;
-
-	for (int i = 0; i < rowCount && i + offset < columnCount; i++)
-	{
-		auto maxIndex = GetMaxIndexInColumn(deviceMatrix, i, i + offset, rowCount, columnCount);
-
-		if (maxIndex < 0)
-		{
-			offset++;
-			i--;
-			continue;
-		}
-
-		if (maxIndex != i)
-		{
-			SwapRows<<<size, size >>>(deviceMatrix, i, maxIndex, i + offset, rowCount, columnCount);
-		}
-
-		CalculateCurrentRow<<<size, size >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
-		CalculateRows<<<size, size >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
-		SetCurrentZero<<<size, size >>>(deviceMatrix, i, i + offset, rowCount, columnCount);
-	}
-
-	cudaFree(deviceMatrix);
-
-	auto rank = columnCount - offset > rowCount
-		? rowCount
-		: columnCount - offset;
-
-	return rank;
+	if (blockIdx.x > 0)
+		devArr[idx] += newArr[blockIdx.x - 1];
 }
 
-int main()
+int Max(int a, int b)
 {
-	std::ios_base::sync_with_stdio(false);
-	std::cin.tie(nullptr);
+	return a > b
+		? a
+		: b;
+}
 
-	int rowCount, columnCount;
-	std::cin >> rowCount >> columnCount;
+int Min(int a, int b)
+{
+	return a < b
+		? a
+		: b;
+}
 
-	auto isTransposed = rowCount < columnCount;
+void Scan(int* devCount, int size)
+{
+	//auto newHostCount = &hostCount[Ceil(size, BLOCK_SIZE) * BLOCK_SIZE];
+	//auto newHostCount = new int[Ceil(size, BLOCK_SIZE)];
 
-	if (isTransposed)
+	int blockCount = Max(1, size / BLOCK_SIZE);
+	int blockSize = Min(size, BLOCK_SIZE);
+	int* newDevCount;
+	cudaMalloc(&newDevCount, sizeof(int) * blockSize);
+	
+	KernelBlockScan<<< blockCount, blockSize >>>(devCount, newDevCount);
+
+	if (size > BLOCK_SIZE)
 	{
-		auto temp = rowCount;
-		rowCount = columnCount;
-		columnCount = temp;
+		Scan(newDevCount, size / BLOCK_SIZE);
+		KernelBlockShift<<<size / BLOCK_SIZE, BLOCK_SIZE >>>(devCount, newDevCount);
 	}
 
-	auto matrix = new double[rowCount * columnCount];
+	cudaFree(newDevCount);
+}
 
-	for (int i = 0; i < rowCount; i++)
+using namespace std;
+
+const int MAX_NUMBER = 16777215;
+
+int main(int argc, const char** argv)
+{
+	int size;
+	cin >> size;
+	//fread(&size, sizeof(int), 1, stdin);
+
+	auto hostArray = new int[size];
+	//fread(hostArray, sizeof(int), size, stdin);
+
+	fprintf(stderr, "size = %d\n", size);
+	for (int i = 0; i < size; i++)
 	{
-		for (int j = 0; j < columnCount; j++)
-		{
-			//std::cin >> (isTransposed
-			//	? matrix[i * columnCount + j]
-			//	: matrix[j * rowCount + i]);
-			matrix[i * columnCount + j] = rand() % 200 - 100;
-		}
+		cin >> hostArray[i];
+		//fprintf(stderr, "%d ", hostArray[i]);
 	}
 
-	cudaEvent_t start, stop;
+	int* devCount;
+	cudaMalloc(&devCount, sizeof(int) * (MAX_NUMBER + 1));
+	cudaMemset(&devCount, 0, sizeof(int) * (MAX_NUMBER + 1));
+
+	int* devArray;
+	cudaMalloc(&devArray, sizeof(int) * size);
+	cudaMemcpy(devArray, hostArray, sizeof(int) * size, cudaMemcpyHostToDevice);
+
+	Histohram<<<256, 256>>>(devCount, devArray, size);
+	Scan(devCount, MAX_NUMBER + 1);
+
+	int* outDevArray;
+	cudaMalloc(&outDevArray, sizeof(int) * size);
+	CountSort<<<256, 256>>>(devCount, devArray, outDevArray, size);
+
+	cudaMemcpy(hostArray, outDevArray, sizeof(int) * size, cudaMemcpyDeviceToHost);
+
+	//fwrite(hostArray, sizeof(int), size, stdout);
+
+	fprintf(stderr, "output:\n");
+
+	for (int i = 0; i < size; i++)
 	{
-		cudaEventCreate(&start);
-		cudaEventCreate(&stop);
-
-		cudaEventRecord(start);
-
-		auto rank = FindRank(matrix, rowCount, columnCount, 32);
-		//std:: cout << rank << '\n';
-
-		cudaEventRecord(stop);
-		cudaEventSynchronize(stop);
-
-		float milliseconds = 0;
-		cudaEventElapsedTime(&milliseconds, start, stop);
-		std::cout << milliseconds / 1000 << ' ';
+		fprintf(stderr, "%d ", hostArray[i]);
 	}
-
-	{
-		cudaEventCreate(&start);
-		cudaEventCreate(&stop);
-
-		cudaEventRecord(start);
-
-		auto rank = FindRank(matrix, rowCount, columnCount, 1024);
-		//std:: cout << rank << '\n';
-
-		cudaEventRecord(stop);
-		cudaEventSynchronize(stop);
-
-		float milliseconds = 0;
-		cudaEventElapsedTime(&milliseconds, start, stop);
-		std::cout << milliseconds / 1000 << std::endl;
-	}
-
-	delete[] matrix;
 }
