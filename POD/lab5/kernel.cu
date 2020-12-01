@@ -9,6 +9,16 @@
 #include <iostream>
 #include <algorithm>
 
+#define CSC(call)                   \
+do {                                \
+    cudaError_t res = call;         \
+    if (res != cudaSuccess) {       \
+        fprintf(stderr, "ERROR in %s:%d. Message: %s\n",            \
+                __FILE__, __LINE__, cudaGetErrorString(res));       \
+        exit(0);                    \
+    }                               \
+} while(0)
+
 __global__ void Histohram(int* devCount, int* arr, int size)
 {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -31,7 +41,7 @@ __global__ void CountSort(int* devScan, int* arr, int* out, int size)
 	}
 }
 
-const int BLOCK_SIZE = 256;
+const int BLOCK_SIZE = 1024;
 
 __global__ void KernelBlockScan(int* devArr, int* newDevArr)
 {
@@ -118,14 +128,16 @@ void Scan(int* devCount, int size)
 	int blockCount = Max(1, size / BLOCK_SIZE);
 	int blockSize = Min(size, BLOCK_SIZE);
 	int* newDevCount;
-	cudaMalloc(&newDevCount, sizeof(int) * blockSize);
+	cudaMalloc((void**)&newDevCount, sizeof(int) * blockCount);
 	
 	KernelBlockScan<<< blockCount, blockSize >>>(devCount, newDevCount);
-
+	cudaDeviceSynchronize();
+	fprintf(stderr, "<<<%d, %d>>>\n", blockCount, blockSize);
 	if (size > BLOCK_SIZE)
 	{
 		Scan(newDevCount, size / BLOCK_SIZE);
 		KernelBlockShift<<<size / BLOCK_SIZE, BLOCK_SIZE >>>(devCount, newDevCount);
+		cudaDeviceSynchronize();
 	}
 
 	cudaFree(newDevCount);
@@ -135,45 +147,82 @@ using namespace std;
 
 const int MAX_NUMBER = 16777215;
 
+__global__ void TestAdd(int* devInt)
+{
+	atomicAdd(&devInt[0], 1);
+}
+
 int main(int argc, const char** argv)
 {
+	//cudaSetDevice(1);
+
+	/*auto testArr = new int[MAX_NUMBER + 1];
+
+	for(int i = 0; i < MAX_NUMBER + 1; i++)
+		testArr[i] = 1;
+	int* devTestArr;
+
+	cudaMalloc((void**)&devTestArr, sizeof(int) * (MAX_NUMBER + 1));
+
+	cudaMemcpy(devTestArr, testArr, sizeof(int) * (MAX_NUMBER + 1), cudaMemcpyHostToDevice);
+
+	Scan(devTestArr, MAX_NUMBER + 1);
+
+	cudaMemcpy(testArr, devTestArr, sizeof(int) * (MAX_NUMBER + 1), cudaMemcpyDeviceToHost);
+
+	for (int i = MAX_NUMBER + 1 - 16; i < MAX_NUMBER + 1; i++)
+		fprintf(stderr, "%d ", testArr[i]);
+
+	int* devTest;
+	int hostTest = 0;
+	cudaMalloc((void**)&devTest, sizeof(int));
+	cudaMemcpy(devTest, &hostTest, sizeof(int), cudaMemcpyHostToDevice);
+	//cudaMemset(&devTest, 0, sizeof(int));
+	TestAdd << <16384, 1024 >> > (devTest);
+	
+	cudaMemcpy(&hostTest, devTest, sizeof(int), cudaMemcpyDeviceToHost);
+	fprintf(stderr, "TEST: %d\n", hostTest);*/
+
 	int size;
-	cin >> size;
-	//fread(&size, sizeof(int), 1, stdin);
+	//cin >> size;
+	fread(&size, sizeof(int), 1, stdin);
 
 	auto hostArray = new int[size];
-	//fread(hostArray, sizeof(int), size, stdin);
+	fread(hostArray, sizeof(int), size, stdin);
 
-	fprintf(stderr, "size = %d\n", size);
+	/*fprintf(stderr, "size = %d\n", size);
 	for (int i = 0; i < size; i++)
 	{
-		cin >> hostArray[i];
+		//cin >> hostArray[i];
 		//fprintf(stderr, "%d ", hostArray[i]);
-	}
+	}*/
 
 	int* devCount;
-	cudaMalloc(&devCount, sizeof(int) * (MAX_NUMBER + 1));
-	cudaMemset(&devCount, 0, sizeof(int) * (MAX_NUMBER + 1));
+	CSC(cudaMalloc((void**)&devCount, sizeof(int) * (MAX_NUMBER + 1)));
+	CSC(cudaMemset(devCount, 0, sizeof(int) * (MAX_NUMBER + 1)));
 
 	int* devArray;
-	cudaMalloc(&devArray, sizeof(int) * size);
-	cudaMemcpy(devArray, hostArray, sizeof(int) * size, cudaMemcpyHostToDevice);
+	CSC(cudaMalloc((void**)&devArray, sizeof(int) * size));
+	CSC(cudaMemcpy(devArray, hostArray, sizeof(int) * size, cudaMemcpyHostToDevice));
 
 	Histohram<<<256, 256>>>(devCount, devArray, size);
+	cudaDeviceSynchronize();
+
 	Scan(devCount, MAX_NUMBER + 1);
 
 	int* outDevArray;
-	cudaMalloc(&outDevArray, sizeof(int) * size);
+	CSC(cudaMalloc((void**)&outDevArray, sizeof(int) * size));
 	CountSort<<<256, 256>>>(devCount, devArray, outDevArray, size);
+	cudaDeviceSynchronize();
 
-	cudaMemcpy(hostArray, outDevArray, sizeof(int) * size, cudaMemcpyDeviceToHost);
+	CSC(cudaMemcpy(hostArray, outDevArray, sizeof(int) * size, cudaMemcpyDeviceToHost));
 
-	//fwrite(hostArray, sizeof(int), size, stdout);
+	fwrite(hostArray, sizeof(int), size, stdout);
 
-	fprintf(stderr, "output:\n");
+	/*fprintf(stderr, "output:\n");
 
 	for (int i = 0; i < size; i++)
 	{
-		fprintf(stderr, "%d ", hostArray[i]);
-	}
+		//fprintf(stderr, "%d ", hostArray[i]);
+	}*/
 }
