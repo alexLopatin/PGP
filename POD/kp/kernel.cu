@@ -8,6 +8,8 @@
 #include <math.h>
 #include <iostream>
 #include <ctime>
+//#include "mpi.h"
+#include "../../../../../../../Program Files (x86)/Microsoft SDKs/MPI/Include/mpi.h"
 
 typedef unsigned char uchar;
 
@@ -24,6 +26,8 @@ struct Triangle
 	vec3 b;
 	vec3 c;
 	uchar4 color;
+	// https://www.youtube.com/watch?v=PnVRnHBWhSk
+	uchar4 ___;
 	double reflection;
 	double refraction;
 };
@@ -32,6 +36,8 @@ struct Light
 {
 	vec3 pos;
 	uchar4 color;
+	// https://www.youtube.com/watch?v=PnVRnHBWhSk
+	uchar4 ___;
 };
 
 struct Hit
@@ -136,18 +142,18 @@ vec3 ToCartesian(vec3 cylindric)
 
 void BuildFloor(vec3 a, vec3 b, vec3 c, vec3 d, uchar4 color, double refl)
 {
-	trigs[0] = { a, c, b, color, refl };
-	trigs[1] = { a, d, c, color, refl };
+	trigs[0] = { a, c, b, color, {}, refl };
+	trigs[1] = { a, d, c, color, {}, refl };
 }
 
 void BuildTetra(vec3 pos, uchar4 color, double r, double refl, double refr)
 {
 	double c = r / sqrt(3);
 
-	trigs[2] = { {c, c, c}, {-c, c, -c}, {c, -c, -c}, color, refl, refr };
-	trigs[3] = { {c, c, c}, {-c, -c, c}, {-c, c, -c}, color, refl, refr };
-	trigs[4] = { {c, c, c}, {-c, -c, c}, {c, -c, -c}, color, refl, refr };
-	trigs[5] = { {-c, c, -c}, {-c, -c, c}, {c, -c, -c}, color, refl, refr };
+	trigs[2] = { {c, c, c}, {-c, c, -c}, {c, -c, -c}, color, {}, refl, refr };
+	trigs[3] = { {c, c, c}, {-c, -c, c}, {-c, c, -c}, color, {}, refl, refr };
+	trigs[4] = { {c, c, c}, {-c, -c, c}, {c, -c, -c}, color, {}, refl, refr };
+	trigs[5] = { {-c, c, -c}, {-c, -c, c}, {c, -c, -c}, color, {}, refl, refr };
 
 	for (int i = 2; i < 6; i++)
 	{
@@ -177,26 +183,26 @@ void BuildIcosa(vec3 pos, uchar4 color, double r, double refl, double refr)
 		{0, -1.118, 0}
 	};
 
-	trigs[6] = { vertices[0], vertices[10], vertices[2], color, refl, refr };
-	trigs[7] = { vertices[2], vertices[10], vertices[4], color, refl, refr };
-	trigs[8] = { vertices[4], vertices[10], vertices[6], color, refl, refr };
-	trigs[9] = { vertices[6], vertices[10], vertices[8], color, refl, refr };
-	trigs[10] = { vertices[8], vertices[10], vertices[0],color, refl, refr };
-	trigs[11] = { vertices[0], vertices[2], vertices[1], color, refl, refr };
-	trigs[12] = { vertices[1], vertices[2], vertices[3], color, refl, refr };
-	trigs[13] = { vertices[2], vertices[4], vertices[3], color, refl, refr };
-	trigs[14] = { vertices[3], vertices[4], vertices[5], color, refl, refr };
-	trigs[15] = { vertices[4], vertices[6], vertices[5], color, refl, refr };
-	trigs[16] = { vertices[5], vertices[6], vertices[7], color, refl, refr };
-	trigs[17] = { vertices[6], vertices[8], vertices[7], color, refl, refr };
-	trigs[18] = { vertices[7], vertices[8], vertices[9], color, refl, refr };
-	trigs[19] = { vertices[8], vertices[0], vertices[9], color, refl, refr };
-	trigs[20] = { vertices[9], vertices[0], vertices[1], color, refl, refr };
-	trigs[21] = { vertices[1], vertices[11], vertices[9],color, refl, refr };
-	trigs[22] = { vertices[3], vertices[11], vertices[1],color, refl, refr };
-	trigs[23] = { vertices[5], vertices[11], vertices[3],color, refl, refr };
-	trigs[24] = { vertices[7], vertices[11], vertices[5],color, refl, refr };
-	trigs[25] = { vertices[9], vertices[11], vertices[7],color, refl, refr };
+	trigs[6] = { vertices[0], vertices[10], vertices[2], color, {}, refl, refr };
+	trigs[7] = { vertices[2], vertices[10], vertices[4], color, {}, refl, refr };
+	trigs[8] = { vertices[4], vertices[10], vertices[6], color, {}, refl, refr };
+	trigs[9] = { vertices[6], vertices[10], vertices[8], color, {}, refl, refr };
+	trigs[10] = { vertices[8], vertices[10], vertices[0],color, {}, refl, refr };
+	trigs[11] = { vertices[0], vertices[2], vertices[1], color, {}, refl, refr };
+	trigs[12] = { vertices[1], vertices[2], vertices[3], color, {}, refl, refr };
+	trigs[13] = { vertices[2], vertices[4], vertices[3], color, {}, refl, refr };
+	trigs[14] = { vertices[3], vertices[4], vertices[5], color, {}, refl, refr };
+	trigs[15] = { vertices[4], vertices[6], vertices[5], color, {}, refl, refr };
+	trigs[16] = { vertices[5], vertices[6], vertices[7], color, {}, refl, refr };
+	trigs[17] = { vertices[6], vertices[8], vertices[7], color, {}, refl, refr };
+	trigs[18] = { vertices[7], vertices[8], vertices[9], color, {}, refl, refr };
+	trigs[19] = { vertices[8], vertices[0], vertices[9], color, {}, refl, refr };
+	trigs[20] = { vertices[9], vertices[0], vertices[1], color, {}, refl, refr };
+	trigs[21] = { vertices[1], vertices[11], vertices[9],color, {}, refl, refr };
+	trigs[22] = { vertices[3], vertices[11], vertices[1],color, {}, refl, refr };
+	trigs[23] = { vertices[5], vertices[11], vertices[3],color, {}, refl, refr };
+	trigs[24] = { vertices[7], vertices[11], vertices[5],color, {}, refl, refr };
+	trigs[25] = { vertices[9], vertices[11], vertices[7],color, {}, refl, refr };
 
 	for (int i = 6; i < 26; i++)
 	{
@@ -239,42 +245,42 @@ void BuildDodeca(vec3 pos, uchar4 color, double r, double refl, double refr)
 		{ 0.000000, -0.93417, 0.356822 }
 	};
 
-	trigs[26] = { vertices[9], vertices[17], vertices[1] ,  color, refl, refr };
-	trigs[27] = { vertices[9], vertices[10], vertices[5] ,  color, refl, refr };
-	trigs[28] = { vertices[13], vertices[9], vertices[1] ,  color, refl, refr };
-	trigs[29] = { vertices[13], vertices[14], vertices[2] , color, refl, refr };
-	trigs[30] = { vertices[17], vertices[13], vertices[1] , color, refl, refr };
-	trigs[31] = { vertices[17], vertices[18], vertices[3] , color, refl, refr };
-	trigs[32] = { vertices[2], vertices[10], vertices[9] ,  color, refl, refr };
-	trigs[33] = { vertices[2], vertices[19], vertices[6] ,  color, refl, refr };
-	trigs[34] = { vertices[3], vertices[14], vertices[13],  color, refl, refr };
-	trigs[35] = { vertices[3], vertices[11], vertices[4] ,  color, refl, refr };
-	trigs[36] = { vertices[5], vertices[18], vertices[17],  color, refl, refr };
-	trigs[37] = { vertices[5], vertices[15], vertices[7] ,  color, refl, refr };
-	trigs[38] = { vertices[6], vertices[5], vertices[10],   color, refl, refr };
-	trigs[39] = { vertices[6], vertices[16], vertices[15],  color, refl, refr };
-	trigs[40] = { vertices[12], vertices[18], vertices[7] , color, refl, refr };
-	trigs[41] = { vertices[12], vertices[11], vertices[3] , color, refl, refr };
-	trigs[42] = { vertices[20], vertices[14], vertices[4] , color, refl, refr };
-	trigs[43] = { vertices[20], vertices[19], vertices[2] , color, refl, refr };
-	trigs[44] = { vertices[16], vertices[20], vertices[8] , color, refl, refr };
-	trigs[45] = { vertices[16], vertices[6], vertices[19],  color, refl, refr };
-	trigs[46] = { vertices[12], vertices[16], vertices[8] , color, refl, refr };
-	trigs[47] = { vertices[12], vertices[7], vertices[15],  color, refl, refr };
-	trigs[48] = { vertices[20], vertices[12], vertices[8] , color, refl, refr };
-	trigs[49] = { vertices[20], vertices[4], vertices[11],  color, refl, refr };
-	trigs[50] = { vertices[9], vertices[5], vertices[17],   color, refl, refr };
-	trigs[51] = { vertices[13], vertices[2], vertices[9] ,  color, refl, refr };
-	trigs[52] = { vertices[17], vertices[3], vertices[13],  color, refl, refr };
-	trigs[53] = { vertices[2], vertices[6], vertices[10],   color, refl, refr };
-	trigs[54] = { vertices[3], vertices[4], vertices[14],   color, refl, refr };
-	trigs[55] = { vertices[5], vertices[7], vertices[18],   color, refl, refr };
-	trigs[56] = { vertices[6], vertices[15], vertices[5] ,  color, refl, refr };
-	trigs[57] = { vertices[12], vertices[3], vertices[18],  color, refl, refr };
-	trigs[58] = { vertices[20], vertices[2], vertices[14],  color, refl, refr };
-	trigs[59] = { vertices[16], vertices[19], vertices[20], color, refl, refr };
-	trigs[60] = { vertices[12], vertices[15], vertices[16], color, refl, refr };
-	trigs[61] = { vertices[20], vertices[11], vertices[12], color, refl, refr };
+	trigs[26] = { vertices[9], vertices[17], vertices[1] ,  color, {}, refl, refr };
+	trigs[27] = { vertices[9], vertices[10], vertices[5] ,  color, {}, refl, refr };
+	trigs[28] = { vertices[13], vertices[9], vertices[1] ,  color, {}, refl, refr };
+	trigs[29] = { vertices[13], vertices[14], vertices[2] , color, {}, refl, refr };
+	trigs[30] = { vertices[17], vertices[13], vertices[1] , color, {}, refl, refr };
+	trigs[31] = { vertices[17], vertices[18], vertices[3] , color, {}, refl, refr };
+	trigs[32] = { vertices[2], vertices[10], vertices[9] ,  color, {}, refl, refr };
+	trigs[33] = { vertices[2], vertices[19], vertices[6] ,  color, {}, refl, refr };
+	trigs[34] = { vertices[3], vertices[14], vertices[13],  color, {}, refl, refr };
+	trigs[35] = { vertices[3], vertices[11], vertices[4] ,  color, {}, refl, refr };
+	trigs[36] = { vertices[5], vertices[18], vertices[17],  color, {}, refl, refr };
+	trigs[37] = { vertices[5], vertices[15], vertices[7] ,  color, {}, refl, refr };
+	trigs[38] = { vertices[6], vertices[5], vertices[10],   color, {}, refl, refr };
+	trigs[39] = { vertices[6], vertices[16], vertices[15],  color, {}, refl, refr };
+	trigs[40] = { vertices[12], vertices[18], vertices[7] , color, {}, refl, refr };
+	trigs[41] = { vertices[12], vertices[11], vertices[3] , color, {}, refl, refr };
+	trigs[42] = { vertices[20], vertices[14], vertices[4] , color, {}, refl, refr };
+	trigs[43] = { vertices[20], vertices[19], vertices[2] , color, {}, refl, refr };
+	trigs[44] = { vertices[16], vertices[20], vertices[8] , color, {}, refl, refr };
+	trigs[45] = { vertices[16], vertices[6], vertices[19],  color, {}, refl, refr };
+	trigs[46] = { vertices[12], vertices[16], vertices[8] , color, {}, refl, refr };
+	trigs[47] = { vertices[12], vertices[7], vertices[15],  color, {}, refl, refr };
+	trigs[48] = { vertices[20], vertices[12], vertices[8] , color, {}, refl, refr };
+	trigs[49] = { vertices[20], vertices[4], vertices[11],  color, {}, refl, refr };
+	trigs[50] = { vertices[9], vertices[5], vertices[17],   color, {}, refl, refr };
+	trigs[51] = { vertices[13], vertices[2], vertices[9] ,  color, {}, refl, refr };
+	trigs[52] = { vertices[17], vertices[3], vertices[13],  color, {}, refl, refr };
+	trigs[53] = { vertices[2], vertices[6], vertices[10],   color, {}, refl, refr };
+	trigs[54] = { vertices[3], vertices[4], vertices[14],   color, {}, refl, refr };
+	trigs[55] = { vertices[5], vertices[7], vertices[18],   color, {}, refl, refr };
+	trigs[56] = { vertices[6], vertices[15], vertices[5] ,  color, {}, refl, refr };
+	trigs[57] = { vertices[12], vertices[3], vertices[18],  color, {}, refl, refr };
+	trigs[58] = { vertices[20], vertices[2], vertices[14],  color, {}, refl, refr };
+	trigs[59] = { vertices[16], vertices[19], vertices[20], color, {}, refl, refr };
+	trigs[60] = { vertices[12], vertices[15], vertices[16], color, {}, refl, refr };
+	trigs[61] = { vertices[20], vertices[11], vertices[12], color, {}, refl, refr };
 
 	for (int i = 26; i < 62; i++)
 	{
@@ -630,11 +636,44 @@ void SetDefaultParams()
 
 int main(int argc, char* argv[])
 {
+	int numproc, id, numDevice;
+
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &numproc);
+	MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+	cudaGetDeviceCount(&numDevice);
+	cudaSetDevice(id % numDevice);
+
 	bool useCpu = ContainsKey(argv, argc, "--cpu");
-	bool useDefault = ContainsKey(argv, argc, "--default");
-	useDefault
-		? SetDefaultParams()
-		: ReadParams();
+
+	if (!id)
+	{
+		bool useDefault = ContainsKey(argv, argc, "--default");
+		useDefault
+			? SetDefaultParams()
+			: ReadParams();
+	}
+
+	//send params to all processes
+	MPI_Bcast(&useCpu, 1, MPI_BYTE, 0, MPI_COMM_WORLD);
+
+	MPI_Bcast(&frames, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&path, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&w, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&h, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&degree, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+	MPI_Bcast(&cameraParams, 10, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&cameraViewDirParams, 10, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+	MPI_Bcast(&trigs, trigsCount * 14, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+	MPI_Bcast(&lightCount, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&lights, lightCount * 4, MPI_INT, 0, MPI_COMM_WORLD);
+
+	MPI_Bcast(&maxRecur, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&sqrRaySSAA, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 	char buff[256];
 	uchar4* data = (uchar4*)malloc(sizeof(uchar4) * w * h);
@@ -656,7 +695,12 @@ int main(int argc, char* argv[])
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
 
-	for (int k = 0; k < frames; k++)
+	int first = frames / numproc * id;
+	int last = (id != numDevice - 1)
+		? frames / numproc * id
+		: frames;
+
+	for (int k = first; k < last; k++)
 	{
 		double t = k * 2 * M_PI / frames;
 		pc = ToCartesian
@@ -710,6 +754,9 @@ int main(int argc, char* argv[])
 		fwrite(data, sizeof(uchar4), w * h, out);
 		fclose(out);
 	}
+
 	free(data);
+	MPI_Finalize();
+
 	return 0;
 }
