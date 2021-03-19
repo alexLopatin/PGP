@@ -9,6 +9,7 @@
 #include <iostream>
 #include <ctime>
 //#include "mpi.h"
+#include "omp.h"
 #include "../../../../../../../Program Files (x86)/Microsoft SDKs/MPI/Include/mpi.h"
 
 typedef unsigned char uchar;
@@ -54,7 +55,7 @@ struct MotionParams
 	double fi0, Wfi;
 };
 
-int frames = 126;
+int frames = 16;
 char path[256] = "res/%d.data";
 int w = 640;
 int h = 480;
@@ -508,8 +509,12 @@ __host__ void RenderCPU(
 	vec3 bx = norm(prod(bz, { 0.0, 0.0, 1.0 }));
 	vec3 by = norm(prod(bx, bz));
 
-	for (int i = 0; i < w; i++)
-		for (int j = 0; j < h; j++) {
+	#pragma omp parallel
+	{
+		#pragma omp for
+		for (int l = 0; l < w * h; l++) {
+			int i = l / h;
+			int j = l % w;
 			vec3 c = { -1.0, -1.0, z };
 			vec3 cameraDir = norm(mult(bx, by, bz, c));
 
@@ -550,6 +555,7 @@ __host__ void RenderCPU(
 				data[(h - 1 - j) * w + i] = Ray(pc, norm(dir), cameraDir, trigs, lights, lightsCount, maxRecur);
 			}
 		}
+	}
 }
 
 void ReadParams()
