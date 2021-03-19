@@ -8,9 +8,9 @@
 #include <math.h>
 #include <iostream>
 #include <ctime>
-//#include "mpi.h"
+#include "mpi.h"
 #include "omp.h"
-#include "../../../../../../../Program Files (x86)/Microsoft SDKs/MPI/Include/mpi.h"
+//#include "../../../../../../../Program Files (x86)/Microsoft SDKs/MPI/Include/mpi.h"
 
 typedef unsigned char uchar;
 
